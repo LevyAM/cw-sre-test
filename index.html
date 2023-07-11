@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Monitoring</title>
+</head>
+<body>
+    <h1>Service Monitoring</h1>
+
+    <form method="post">
+        <label>Email Address:</label>
+        <input type="email" name="email_address" value="{{ config.email_address }}" required><br><br>
+
+        <label>Check Interval (seconds):</label>
+        <input type="number" name="check_interval" value="{{ config.check_interval }}" required><br><br>
+
+        <label>Timeout (seconds):</label>
+        <input type="number" name="timeout" value="{{ config.timeout }}" required><br><br>
+
+        <label>Healthy Threshold:</label>
+        <input type="number" name="healthy_threshold" value="{{ config.healthy_threshold }}" required><br><br>
+
+        <label>Unhealthy Threshold:</label>
+        <input type="number" name="unhealthy_threshold" value="{{ config.unhealthy_threshold }}" required><br><br>
+
+    </form>
+</body>
+</html>

@@ -1,2 +1,8 @@
 # Google App Engine generated folder
 appengine-generated/
+
+# .env file (contains sensitive data)
+.env
+
+# node_modules folder
+node_modules/
