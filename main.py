@@ -35,26 +35,31 @@ auth_token = os.getenv("AUTH_TOKEN")
 healthy_count = 0
 unhealthy_count = 0
 
+tcp_endpoint_status = "WAITING FOR STATUS"
+http_endpoint_status = "WAITING FOR STATUS"
+
 # Send Email Function
 
 
-def send_email(subject, message, sender, recipient):
-
-    # Create the email message
+def send_email(subject, message, sender=smtp_username, recipient=email_address, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password):
     email = MIMEMultipart()
     email["Subject"] = subject
     email["From"] = sender
     email["To"] = recipient
 
-    # Attach the message body
     body = MIMEText(message)
     email.attach(body)
 
-    with smtplib.SMTP(smtp_host, smtp_port) as smtp:
-        smtp.starttls()
-        smtp.login(smtp_username, smtp_password)
-        smtp.sendmail(sender, recipient, email.as_string())
-        smtp.quit()
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as smtp:
+            smtp.starttls()
+            smtp.login(smtp_username, smtp_password)
+            smtp.sendmail(sender, recipient, email.as_string())
+            smtp.quit()
+    except smtplib.SMTPException as err:
+        print("SMTP error:", err)
+    else:
+        print("Email sent successfully")
 
 # Check HTTP endpoint
 
@@ -125,47 +130,42 @@ def test_tcp(host, port, auth_token):
 
 
 def monitor_endpoints():
-    global healthy_count
-    global unhealthy_count
+    global healthy_count, unhealthy_count
 
     while True:
         # Check HTTP endpoint
         http_endpoint_status = test_http(http_host, auth_token)
-        if http_endpoint_status:
+        if http_endpoint_status == True:
             healthy_count += 1
             unhealthy_count = 0
             if healthy_count >= healthy_threshold:
                 print("HTTP Service Status: Healthy")
-                # Service is considered healthy
-                # send_email("Service Status: Healthy",
-                #            "The service is now healthy.")
+                send_email("Tonto HTTP Service Status: Healthy",
+                           "The Tonto HTTP service is now healthy.")
         else:
             unhealthy_count += 1
             healthy_count = 0
             if unhealthy_count >= unhealthy_threshold:
                 print("HTTP Service Status: Unhealthy")
-                # Service is considered unhealthy
-                # send_email("Service Status: Unhealthy",
-                #            "The service is now unhealthy.")
+                send_email("Tonto HTTP Service Status: Unhealthy",
+                           "The Tonto HTTP service is now unhealthy.")
 
         # Check TCP endpoint
         tcp_endpoint_status = test_tcp(tcp_host, tcp_port, auth_token)
-        if tcp_endpoint_status:
+        if tcp_endpoint_status == True:
             healthy_count += 1
             unhealthy_count = 0
             if healthy_count >= healthy_threshold:
                 print("TCP Service Status: Healthy")
-                # Service is considered healthy
-                # send_email("Service Status: Healthy",
-                #            "The service is now healthy.")
+                send_email("Tonto TCP Service Status: Healthy",
+                           "The Tonto TCP service is now healthy.")
         else:
             unhealthy_count += 1
             healthy_count = 0
             if unhealthy_count >= unhealthy_threshold:
                 print("TCP Service Status: Unhealthy")
-                # Service is considered unhealthy
-                # send_email("Service Status: Unhealthy",
-                #            "The service is now unhealthy.")
+                send_email("Tonto TCP Service Status: Unhealthy",
+                           "The Tonto TCP service is now unhealthy.")
 
         time.sleep(check_interval)
 

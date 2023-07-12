@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 from unittest.mock import patch
 from main import test_http, test_tcp, send_email
 
@@ -63,23 +64,30 @@ class AppTests(unittest.TestCase):
             print("TCP invalid test:", result)
             self.assertFalse(result)
 
-    @patch("smtplib.SMTP")
+    @mock.patch('main.smtplib.SMTP')
     def test_send_email(self, mock_smtp):
-        smtp_instance = mock_smtp.return_value
-
         subject = "Test Subject"
         message = "Test Message"
-        sender = "from@example.com"
-        recipient = "to@example.com"
+        sender = "sender@example.com"
+        recipient = "recipient@example.com"
+        smtp_host = "smtp.example.com"
+        smtp_port = 587
+        smtp_username = "smtp_username"
+        smtp_password = "smtp_password"
 
-        send_email(subject, message, sender, recipient)
+        # Call the function
+        send_email(subject, message, sender, recipient, smtp_host,
+                   smtp_port, smtp_username, smtp_password)
 
-        # Assert SMTP method calls
-        smtp_instance.starttls.assert_called_once()
-        smtp_instance.login.assert_called_once_with(
-            "your-email@example.com", "your-password")
-        smtp_instance.send_message.assert_called_once()
-        smtp_instance.quit.assert_called_once()
+        # Assertions
+        mock_smtp.assert_called_once_with(smtp_host, smtp_port)
+        mock_smtp.return_value.__enter__.assert_called_once()
+        mock_smtp.return_value.__enter__.return_value.login.assert_called_once_with(
+            smtp_username, smtp_password)
+        mock_smtp.return_value.__enter__.return_value.sendmail.assert_called_once_with(
+            sender, recipient, mock.ANY)
+        mock_smtp.return_value.__enter__.return_value.starttls.assert_called_once()
+        mock_smtp.return_value.__exit__.assert_called_once()
 
 
 if __name__ == "__main__":
