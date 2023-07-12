@@ -4,5 +4,5 @@ appengine-generated/
 # .env file (contains sensitive data)
 .env
 
-# node_modules folder
-node_modules/
+# __pycache__ folder
+__pycache__/

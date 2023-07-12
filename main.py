@@ -3,9 +3,10 @@ from dotenv import load_dotenv
 import os
 import time
 import requests
-import feedparser
 import smtplib
 import socket
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 
@@ -13,64 +14,128 @@ app = Flask(__name__)
 load_dotenv()
 
 # Configuration parameters
-email_address = os.getenv("EMAIL_ADDRESS")
 check_interval = int(os.getenv("CHECK_INTERVAL", 60))
 timeout = int(os.getenv("TIMEOUT", 10))
 healthy_threshold = int(os.getenv("HEALTHY_THRESHOLD", 3))
 unhealthy_threshold = int(os.getenv("UNHEALTHY_THRESHOLD", 3))
-token = os.getenv("TOKEN")
+
+email_address = os.getenv("EMAIL_ADDRESS")
 smtp_host = os.getenv("SMTP_HOST")
 smtp_port = int(os.getenv("SMTP_PORT", 587))
 smtp_username = os.getenv("SMTP_USERNAME")
 smtp_password = os.getenv("SMTP_PASSWORD")
+
 tcp_host = os.getenv("TCP_HOST")
 tcp_port = int(os.getenv("TCP_PORT", 3000))
 http_host = os.getenv("HTTP_HOST")
-http_port = int(os.getenv("HTTP_PORT"))
+http_port = int(os.getenv("HTTP_PORT", 443))
+auth_token = os.getenv("AUTH_TOKEN")
 
 # State variables
 healthy_count = 0
 unhealthy_count = 0
 
+# Send Email Function
 
-def check_tcp_endpoint(host, port, auth_token):
+
+def send_email(subject, message, sender, recipient):
+
+    # Create the email message
+    email = MIMEMultipart()
+    email["Subject"] = subject
+    email["From"] = sender
+    email["To"] = recipient
+
+    # Attach the message body
+    body = MIMEText(message)
+    email.attach(body)
+
+    with smtplib.SMTP(smtp_host, smtp_port) as smtp:
+        smtp.starttls()
+        smtp.login(smtp_username, smtp_password)
+        smtp.sendmail(sender, recipient, email.as_string())
+        smtp.quit()
+
+# Check HTTP endpoint
+
+
+def test_http(host, auth_token):
+    url = f"https://{host}/?auth={auth_token}&buf=test"
+
     try:
-        # Create TCP socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(timeout)
+        response = requests.get(url)
 
-        # Connect to TCP server
-        s.connect((host, port))
+        # Raise an exception if the response status code is not 200
+        response.raise_for_status()
 
-        # Send auth token
-        s.sendall(auth_token.encode())
+        # Get the response body
+        lines = response.iter_lines()
 
-        # Receive response
-        response = s.recv(1024)
+        # Check if the response body contains the expected message
 
-        # Close the socket
-        s.close()
-
-        if response == b"OK":
-            return True
-        else:
+        if response.status_code == 200:
+            for line in lines:
+                if b"CLOUDWALK" in line:
+                    return True
             return False
-    except Exception as e:
-        print("Failed to check TCP endpoint:", str(e))
+        else:
+            print("HTTP: response status:", response.status_code)
+            return False
+
+    except requests.exceptions.RequestException as err:
+        print("HTTP: request error:", err)
         return False
 
-def check_http_endpoint(host, port, auth_token):
+# Check TCP endpoint
+
+
+def test_tcp(host, port, auth_token):
+    try:
+        # Create a TCP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Connect to the Tonto TCP service
+        sock.connect((host, int(port)))
+
+        # Send the authentication
+        auth_message = f"auth {auth_token}".encode()
+        sock.sendall(auth_message)
+
+        # Receive the authentication reply
+        auth_reply = sock.recv(1024)
+
+        if b"auth ok" in auth_reply:
+            # Send the testing message
+            test_message = b"Test"
+            sock.sendall(test_message)
+
+            # Receive the testing reply
+            test_reply = sock.recv(1024)
+
+            if b"CLOUDWALK" in test_reply:
+                return True
+
+    except socket.error as err:
+        print("TCP: Connection error:", err)
+    finally:
+        # Close the socket connection
+        sock.close()
+
+    return False
+
 
 def monitor_endpoints():
-    global healthy_count, unhealthy_count
+    global healthy_count
+    global unhealthy_count
 
     while True:
-        # Check first endpoint
-        endpoint1_status = check_tcp_endpoint(tcp_host, tcp_port, token)
-        if endpoint1_status:
+        # Check HTTP endpoint
+        http_endpoint_status = test_http(http_host, auth_token)
+        if http_endpoint_status:
             healthy_count += 1
             unhealthy_count = 0
             if healthy_count >= healthy_threshold:
+                print("HTTP Service Status: Healthy")
                 # Service is considered healthy
                 # send_email("Service Status: Healthy",
                 #            "The service is now healthy.")
@@ -78,17 +143,18 @@ def monitor_endpoints():
             unhealthy_count += 1
             healthy_count = 0
             if unhealthy_count >= unhealthy_threshold:
+                print("HTTP Service Status: Unhealthy")
                 # Service is considered unhealthy
                 # send_email("Service Status: Unhealthy",
                 #            "The service is now unhealthy.")
 
-        # Check second endpoint
-        endpoint2_status = check_endpoint( 
-            "https://tonto-http.cloudwalk.io?auth=" + token)
-        if endpoint2_status:
+        # Check TCP endpoint
+        tcp_endpoint_status = test_tcp(tcp_host, tcp_port, auth_token)
+        if tcp_endpoint_status:
             healthy_count += 1
             unhealthy_count = 0
             if healthy_count >= healthy_threshold:
+                print("TCP Service Status: Healthy")
                 # Service is considered healthy
                 # send_email("Service Status: Healthy",
                 #            "The service is now healthy.")
@@ -96,6 +162,7 @@ def monitor_endpoints():
             unhealthy_count += 1
             healthy_count = 0
             if unhealthy_count >= unhealthy_threshold:
+                print("TCP Service Status: Unhealthy")
                 # Service is considered unhealthy
                 # send_email("Service Status: Unhealthy",
                 #            "The service is now unhealthy.")
