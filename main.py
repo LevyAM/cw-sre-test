@@ -4,7 +4,8 @@ import time
 import smtplib
 import os
 import requests
-from flask import Flask
+from flask import Flask, Response, render_template, request, jsonify
+from flask_login import login_required
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -176,6 +177,63 @@ def rss():
     print(tcp_status)
 
     return feed
+
+
+# Create an authenticated route that needs auth_token to change receiver_email, check_interval, timeout, healthy_threshold, unhealthy_threshold
+@app.route("/settings", methods=["POST"])
+@login_required
+def settings():
+
+    # global receiver_email
+    # global check_interval
+    # global timeout
+    # global healthy_threshold
+    # global unhealthy_threshold
+
+    auth_token = request.headers["Authorization"].split(" ")[1]
+    receiver_email = request.json.get("receiver_email")
+    check_interval = request.json.get("check_interval")
+    timeout = request.json.get("timeout")
+    healthy_threshold = request.json.get("healthy_threshold")
+    unhealthy_threshold = request.json.get("unhealthy_threshold")
+
+    if not auth_token == os.getenv("AUTH_TOKEN"):
+        return Response(status=401, response="Unauthorized")
+
+    if receiver_email:
+        os.environ["RECEIVER_EMAIL"] = receiver_email
+
+    if check_interval:
+        os.environ["CHECK_INTERVAL"] = check_interval
+
+    if timeout:
+        os.environ["TIMEOUT"] = timeout
+
+    if healthy_threshold:
+        os.environ["HEALTHY_THRESHOLD"] = healthy_threshold
+
+    if unhealthy_threshold:
+        os.environ["UNHEALTHY_THRESHOLD"] = unhealthy_threshold
+
+    # Return success message and code 200
+
+    return Response(status=200, response="Settings updated")
+
+
+# Create a route that shows the current config except for auth_token and receiver_email and renders it as html
+
+
+@app.route("/", methods=["GET"])
+def index():
+
+    global http_link
+    global tcp_link
+    global check_interval
+    global timeout
+    global healthy_threshold
+    global unhealthy_threshold
+
+    return render_template("index.html", http_link=http_link, tcp_link=tcp_link, check_interval=check_interval, timeout=timeout, healthy_threshold=healthy_threshold, unhealthy_threshold=unhealthy_threshold)
 
 
 if __name__ == "__main__":
