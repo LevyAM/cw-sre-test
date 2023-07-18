@@ -10,9 +10,35 @@ The application can be accessed at `https://cw-sre-7471da4f6848.herokuapp.com`.
 
 The following endpoints and verbs are supported:
 
-- `/` - GET - Returns the values of the environment variables.
-- `/rss` - GET - Returns an RSS feed with the status of the endpoints.
-- `/settings` - POST - Set parameters for the monitoring process.
+- `/` - GET - Returns the values of the environment variables. It can be sent via browser or curl, like the example below:
+
+```
+curl --request GET \
+  --url https://cw-sre-7471da4f6848.herokuapp.com/
+```
+
+
+- `/rss` - GET - Returns an RSS feed with the status of the endpoints. It can be sent via browser or curl, like the example below:
+
+```
+curl --request GET \
+  --url https://cw-sre-7471da4f6848.herokuapp.com/rss
+```
+
+- `/settings` - POST - Set parameters for the monitoring process. It should be sent like the example below:
+
+```
+curl --request POST \
+  --url https://cw-sre-7471da4f6848.herokuapp.com/settings \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "receiver_email": "test@email.com",
+  "check_interval": "30",
+  "timeout": "30",
+  "healthy_threshold": "2",
+  "unhealthy_threshold": "2"
+}'
+```
 
 ## Setup
 

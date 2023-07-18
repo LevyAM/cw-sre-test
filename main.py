@@ -17,6 +17,7 @@ app = Flask(__name__)
 load_dotenv()
 host = os.getenv("HOST", "0.0.0.0")
 port = int(os.getenv("PORT"))
+sender_email = os.getenv("SENDER_EMAIL")
 receiver_email = os.getenv("RECEIVER_EMAIL")
 check_interval = int(os.getenv("CHECK_INTERVAL"))
 timeout = int(os.getenv("TIMEOUT"))
@@ -87,7 +88,7 @@ def check_tcp_link(host, port, auth_token, timeout=timeout):
     return False
 
 
-def send_email_alert(subject, message, sender=smtp_username, receiver=receiver_email, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password, smtp_api_token=smtp_api_token):
+def send_email_alert(subject, message, sender=sender_email, receiver=receiver_email, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password, smtp_api_token=smtp_api_token):
     url = "https://api.smtplw.com.br/v1/messages"
     headers = {
         "accept": "application/json",
@@ -106,10 +107,11 @@ def send_email_alert(subject, message, sender=smtp_username, receiver=receiver_e
 
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
-    if response.status_code == 200:
+    if response.status_code == 201 or response.status_code == 200:
         print("Email sent successfully!")
     else:
         print("Error sending email: {}".format(response.status_code))
+        print(response.text)
 
 
 def check_health():
@@ -165,10 +167,10 @@ def check_health():
 
 def start_health_check():
     if __name__ == "__main__":
-        while True:
-            print("Starting health check...")
-            check_health()
-            time.sleep(check_interval)
+        # while True:
+        print("Starting health check...")
+        check_health()
+        time.sleep(check_interval)
 
 
 @app.route("/rss", methods=["GET"])
