@@ -12,3 +12,7 @@ manual_scaling:
 resources:
   cpu: 1
   memory_gb: 0.5
+
+# Create a file named env_variables.yaml based on env_variables_example.yaml
+includes:
+  - env_variables.yaml

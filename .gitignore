@@ -6,3 +6,6 @@ appengine-generated/
 
 # __pycache__ folder
 __pycache__/
+
+# env_variables file
+env_variables.yaml

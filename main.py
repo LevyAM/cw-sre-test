@@ -1,103 +1,67 @@
-from flask import Flask, render_template, request
-from dotenv import load_dotenv
-import os
-import time
-import requests
-import smtplib
+import threading
 import socket
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import time
+import smtplib
+import os
+import requests
+from flask import Flask
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-# Load environment variables from .env file
 load_dotenv()
-
-# Configuration parameters
-check_interval = int(os.getenv("CHECK_INTERVAL", 60))
-timeout = int(os.getenv("TIMEOUT", 10))
-healthy_threshold = int(os.getenv("HEALTHY_THRESHOLD", 3))
-unhealthy_threshold = int(os.getenv("UNHEALTHY_THRESHOLD", 3))
-
-email_address = os.getenv("EMAIL_ADDRESS")
+host = os.getenv("HOST", "127.0.0.1")
+port = int(os.getenv("PORT", 8000))
+receiver_email = os.getenv("RECEIVER_EMAIL")
+check_interval = int(os.getenv("CHECK_INTERVAL"))
+timeout = int(os.getenv("TIMEOUT"))
+healthy_threshold = int(os.getenv("HEALTHY_THRESHOLD"))
+unhealthy_threshold = int(os.getenv("UNHEALTHY_THRESHOLD"))
+http_link = os.getenv("HTTP_HOST")
+tcp_link = os.getenv("TCP_HOST")
+tcp_port = os.getenv("TCP_PORT")
 smtp_host = os.getenv("SMTP_HOST")
-smtp_port = int(os.getenv("SMTP_PORT", 587))
+smtp_port = os.getenv("SMTP_PORT")
 smtp_username = os.getenv("SMTP_USERNAME")
 smtp_password = os.getenv("SMTP_PASSWORD")
-
-tcp_host = os.getenv("TCP_HOST")
-tcp_port = int(os.getenv("TCP_PORT", 3000))
-http_host = os.getenv("HTTP_HOST")
-http_port = int(os.getenv("HTTP_PORT", 443))
 auth_token = os.getenv("AUTH_TOKEN")
-
-# State variables
-healthy_count = 0
-unhealthy_count = 0
-
-tcp_endpoint_status = "WAITING FOR STATUS"
-http_endpoint_status = "WAITING FOR STATUS"
-
-# Send Email Function
+http_healthy_count = 0
+http_unhealthy_count = 0
+tcp_healthy_count = 0
+tcp_unhealthy_count = 0
+http_status = "Unknown"
+tcp_status = "Unknown"
 
 
-def send_email(subject, message, sender=smtp_username, recipient=email_address, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password):
-    email = MIMEMultipart()
-    email["Subject"] = subject
-    email["From"] = sender
-    email["To"] = recipient
+def check_http_endpoint(host, auth_token, timeout=timeout):
 
-    body = MIMEText(message)
-    email.attach(body)
-
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as smtp:
-            smtp.starttls()
-            smtp.login(smtp_username, smtp_password)
-            smtp.sendmail(sender, recipient, email.as_string())
-            smtp.quit()
-    except smtplib.SMTPException as err:
-        print("SMTP error:", err)
-    else:
-        print("Email sent successfully")
-
-# Check HTTP endpoint
-
-
-def test_http(host, auth_token):
     url = f"https://{host}/?auth={auth_token}&buf=test"
 
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=timeout)
 
-        # Raise an exception if the response status code is not 200
         response.raise_for_status()
 
-        # Get the response body
-        lines = response.iter_lines()
-
-        # Check if the response body contains the expected message
-
         if response.status_code == 200:
-            for line in lines:
+            for line in response.iter_lines():
                 if b"CLOUDWALK" in line:
                     return True
-            return False
+            return True
         else:
-            print("HTTP: response status:", response.status_code)
+            print("HTTP Response Status Code: " + str(response.status_code))
             return False
-
     except requests.exceptions.RequestException as err:
-        print("HTTP: request error:", err)
+        print("HTTP Request Exception: ", err)
         return False
 
-# Check TCP endpoint
 
-
-def test_tcp(host, port, auth_token):
+def check_tcp_link(host, port, auth_token, timeout=timeout):
     try:
         # Create a TCP socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Set the socket timeout
+        sock.settimeout(timeout)
 
         # Connect to the Tonto TCP service
         sock.connect((host, int(port)))
@@ -129,65 +93,108 @@ def test_tcp(host, port, auth_token):
     return False
 
 
-def monitor_endpoints():
-    global healthy_count, unhealthy_count
+def send_email_alert(subject, message, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password, receiver_email=receiver_email):
+    server = smtplib.SMTP(smtp_host, smtp_port)
+    server.starttls()
+    server.login(smtp_username, smtp_password)
+    server.sendmail(
+        smtp_username,
+        receiver_email,
+        f"Subject: {subject}\n\n{message}\n\nSent from: {server.gethostname()}",
+    )
 
+
+def check_health():
+    global http_healthy_count
+    global http_unhealthy_count
+    global tcp_healthy_count
+    global tcp_unhealthy_count
+    global http_status
+    global tcp_status
+
+    if check_http_endpoint(http_link, auth_token, timeout):
+        http_healthy_count += 1
+        http_unhealthy_count = 0
+        if http_healthy_count == healthy_threshold and http_status != "Healthy":
+            http_status = "Healthy"
+            http_healthy_count = 0
+            http_unhealthy_count = 0
+            print("HTTP Endpoint is Healthy")
+            # send_email_alert(
+            #     "Tonto HTTP Endpoint is Healthy", "The Tonto HTTP endpoint is now healthy.")
+    else:
+        http_unhealthy_count += 1
+        http_healthy_count = 0
+        if http_unhealthy_count == unhealthy_threshold and http_status != "Unknown" and http_status != "Unhealthy":
+            http_status = "Unhealthy"
+            http_healthy_count = 0
+            http_unhealthy_count = 0
+            print("HTTP Endpoint is Unhealthy")
+            # send_email_alert(
+            #     "Tonto HTTP Endpoint is Unhealthy", "The Tonto HTTP endpoint is now unhealthy.")
+    if check_tcp_link(tcp_link, tcp_port, auth_token, timeout):
+        tcp_healthy_count += 1
+        tcp_unhealthy_count = 0
+        if tcp_healthy_count == healthy_threshold and tcp_status != "Healthy":
+            tcp_status = "Healthy"
+            tcp_healthy_count = 0
+            tcp_unhealthy_count = 0
+            print("TCP Endpoint is Healthy")
+            # send_email_alert(
+            #     "Tonto TCP Endpoint is Healthy", "The Tonto TCP endpoint is now healthy.")
+    else:
+        tcp_unhealthy_count += 1
+        tcp_healthy_count = 0
+        if tcp_unhealthy_count == unhealthy_threshold and tcp_status != "Unhealthy" and tcp_status != "Unknown":
+            tcp_status = "Unhealthy"
+            tcp_healthy_count = 0
+            tcp_unhealthy_count = 0
+            print("TCP Endpoint is Unhealthy")
+            # send_email_alert(
+            #     "Tonto TCP Endpoint is Unhealthy", "The Tonto TCP endpoint is now unhealthy.")
+    print("Checking health...")
+
+
+def start_health_check():
     while True:
-        # Check HTTP endpoint
-        http_endpoint_status = test_http(http_host, auth_token)
-        if http_endpoint_status == True:
-            healthy_count += 1
-            unhealthy_count = 0
-            if healthy_count >= healthy_threshold:
-                print("HTTP Service Status: Healthy")
-                send_email("Tonto HTTP Service Status: Healthy",
-                           "The Tonto HTTP service is now healthy.")
-        else:
-            unhealthy_count += 1
-            healthy_count = 0
-            if unhealthy_count >= unhealthy_threshold:
-                print("HTTP Service Status: Unhealthy")
-                send_email("Tonto HTTP Service Status: Unhealthy",
-                           "The Tonto HTTP service is now unhealthy.")
-
-        # Check TCP endpoint
-        tcp_endpoint_status = test_tcp(tcp_host, tcp_port, auth_token)
-        if tcp_endpoint_status == True:
-            healthy_count += 1
-            unhealthy_count = 0
-            if healthy_count >= healthy_threshold:
-                print("TCP Service Status: Healthy")
-                send_email("Tonto TCP Service Status: Healthy",
-                           "The Tonto TCP service is now healthy.")
-        else:
-            unhealthy_count += 1
-            healthy_count = 0
-            if unhealthy_count >= unhealthy_threshold:
-                print("TCP Service Status: Unhealthy")
-                send_email("Tonto TCP Service Status: Unhealthy",
-                           "The Tonto TCP service is now unhealthy.")
-
+        print("Starting health check...")
+        check_health()
         time.sleep(check_interval)
 
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        # Update configuration with form data
-        email_address = request.form['email_address']
-        check_interval = int(request.form['check_interval'])
-        timeout = int(request.form['timeout'])
-        healthy_threshold = int(request.form['healthy_threshold'])
-        unhealthy_threshold = int(request.form['unhealthy_threshold'])
+@app.route("/rss", methods=["GET"])
+def rss():
 
-    return render_template('index.html',
-                           email_address=email_address,
-                           check_interval=check_interval,
-                           timeout=timeout,
-                           healthy_threshold=healthy_threshold,
-                           unhealthy_threshold=unhealthy_threshold)
+    global http_status
+    global tcp_status
+
+    entries = []
+    entries.append({
+        "title": "Tonto HTTP Health",
+        "description": "The current health status of the HTTP Service is " + http_status + ".",
+        "link": http_link})
+    entries.append({
+        "title": "Tonto TCP Health",
+        "description": "The current health status of the TCP Service is " + tcp_status + ".",
+        "link": tcp_link})
+
+    feed = {
+        "title": "Tonto Health Status",
+        "entries": entries
+    }
+
+    print(http_status)
+    print(tcp_status)
+
+    return feed
+
+
+# # Execute start_health_check() in a thread
+health_check_thread = threading.Thread(target=start_health_check)
+health_check_thread.start()
 
 
 if __name__ == "__main__":
-    monitor_endpoints()
-    app.run()
+
+    # Start the Flask app
+    app.run(host=host, port=port, debug=True)

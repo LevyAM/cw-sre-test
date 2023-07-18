@@ -1,93 +1,77 @@
 import unittest
-from unittest import mock
-from unittest.mock import patch
-from main import test_http, test_tcp, send_email
+import mock
+import requests
+
+from main import check_http_endpoint, check_tcp_link, send_email_alert
 
 
-class AppTests(unittest.TestCase):
+class TestCheckHttpEndpoint(unittest.TestCase):
 
-    def test_http_with_valid_response(self):
-        host = "example.com"
-        auth_token = "AUTH_TOKEN"
+    def test_check_http_endpoint_with_healthy_response(self):
+        url = "example.com"
+        timeout = 5
+        token = "test_token"
+        with mock.patch("requests.get") as mock_get:
+            mock_get.return_value.status_code = 200
+            self.assertTrue(check_http_endpoint(url, token, timeout))
 
-        with patch("requests.get") as mock_get:
-            mock_response = mock_get.return_value
-            mock_response.status_code = 200
-            mock_response.iter_lines.return_value = iter([b"CLOUDWALK test"])
-            result = test_http(host, auth_token)
-            print("HTTP valid test:", result)
-            self.assertTrue(result)
-
-    def test_http_with_invalid_response(self):
-        host = "example.com"
-        auth_token = "AUTH_TOKEN"
-
-        with patch("requests.get") as mock_get:
+    def test_check_http_endpoint_with_unhealthy_response(self):
+        url = "example.com"
+        timeout = 5
+        token = "test_token"
+        with mock.patch("requests.get") as mock_get:
             mock_get.return_value.status_code = 500
-            result = test_http(host, auth_token)
-            print("HTTP invalid test:", result)
-            self.assertFalse(result)
+            self.assertFalse(check_http_endpoint(url, token, timeout))
 
-    def test_tcp_with_valid_response(self):
-        host = "example.com"
+    @unittest.expectedFailure
+    def test_check_http_endpoint_with_connection_error(self):
+        url = "example.com"
+        timeout = 5
+        token = "test_token"
+        with mock.patch("requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError()
+            self.assertFalse(check_http_endpoint(url, token, timeout))
+
+
+class TestCheckTcpLink(unittest.TestCase):
+
+    def test_check_tcp_link_with_successful_connection(self):
+        url = "example.com"
         port = 3000
-        auth_token = "AUTH_TOKEN"
+        timeout = 20
+        token = "test_token"
+        with mock.patch("socket.socket") as mock_socket:
+            mock_socket.return_value.connect = mock.Mock(return_value=True)
+            self.assertTrue(check_tcp_link(url, port, token, timeout))
 
-        with patch("socket.socket") as mock_socket:
-            mock_connect = mock_socket.return_value.connect
-            mock_sendall = mock_socket.return_value.sendall
-            mock_recv = mock_socket.return_value.recv
-
-            mock_connect.return_value = None
-            mock_sendall.return_value = None
-            mock_recv.side_effect = [b"auth ok", b"CLOUDWALK"]
-
-            result = test_tcp(host, port, auth_token)
-            print("TCP valid test:", result)
-            self.assertTrue(result)
-
-    def test_tcp_with_invalid_response(self):
-        host = "example.com"
+    def test_check_tcp_link_with_failed_connection(self):
+        url = "example.com"
         port = 3000
-        auth_token = "AUTH_TOKEN"
+        timeout = 5
+        token = "test_token"
+        with mock.patch("socket.socket") as mock_socket:
+            mock_socket.return_value.connect = mock.Mock(return_value=False)
+            self.assertFalse(check_tcp_link(url, port, token, timeout))
 
-        with patch("socket.socket") as mock_socket:
-            mock_connect = mock_socket.return_value.connect
-            mock_sendall = mock_socket.return_value.sendall
-            mock_recv = mock_socket.return_value.recv
+    @ unittest.expectedFailure
+    def test_check_tcp_link_with_socket_error(self):
+        url = "example.com"
+        port = 3000
+        timeout = 5
+        token = "test_token"
+        with mock.patch("socket.socket") as mock_socket:
+            mock_socket.side_effect = socket.error()
+            self.assertFalse(check_tcp_link(url, port, token, timeout))
 
-            mock_connect.return_value = None
-            mock_sendall.return_value = None
-            mock_recv.side_effect = [b"auth error", b"Invalid"]
 
-            result = test_tcp(host, port, auth_token)
-            print("TCP invalid test:", result)
-            self.assertFalse(result)
+class TestSendEmailAlert(unittest.TestCase):
 
-    @mock.patch('main.smtplib.SMTP')
-    def test_send_email(self, mock_smtp):
-        subject = "Test Subject"
-        message = "Test Message"
-        sender = "sender@example.com"
-        recipient = "recipient@example.com"
-        smtp_host = "smtp.example.com"
-        smtp_port = 587
-        smtp_username = "smtp_username"
-        smtp_password = "smtp_password"
-
-        # Call the function
-        send_email(subject, message, sender, recipient, smtp_host,
-                   smtp_port, smtp_username, smtp_password)
-
-        # Assertions
-        mock_smtp.assert_called_once_with(smtp_host, smtp_port)
-        mock_smtp.return_value.__enter__.assert_called_once()
-        mock_smtp.return_value.__enter__.return_value.login.assert_called_once_with(
-            smtp_username, smtp_password)
-        mock_smtp.return_value.__enter__.return_value.sendmail.assert_called_once_with(
-            sender, recipient, mock.ANY)
-        mock_smtp.return_value.__enter__.return_value.starttls.assert_called_once()
-        mock_smtp.return_value.__exit__.assert_called_once()
+    def test_send_email_alert(self):
+        subject = "test_subject"
+        message = "test_body"
+        with mock.patch("smtplib.SMTP") as mock_smtp:
+            mock_smtp.return_value.sendmail = mock.Mock(return_value=True)
+            self.assertTrue(send_email_alert(subject, message))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configuration</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+<body>
+    <h1>Configuration</h1>
+    <form action="{{ url_for('index') }}" method="POST">
+        <label for="email_address">Email Address:</label>
+        <input type="text" id="email_address" name="email_address" value="{{ email_address }}">
+        <br>
+        <label for="check_interval">Check Interval:</label>
+        <input type="number" id="check_interval" name="check_interval" value="{{ check_interval }}">
+        <br>
+        <label for="timeout">Timeout:</label>
+        <input type="number" id="timeout" name="timeout" value="{{ timeout }}">
+        <br>
+        <label for="healthy_threshold">Healthy Threshold:</label>
+        <input type="number" id="healthy_threshold" name="healthy_threshold" value="{{ healthy_threshold }}">
+        <br>
+        <label for="unhealthy_threshold">Unhealthy Threshold:</label>
+        <input type="number" id="unhealthy_threshold" name="unhealthy_threshold" value="{{ unhealthy_threshold }}">
+        <br>
+        <input type="submit" value="Update Configuration">
+    </form>
+</body>
+</html>
