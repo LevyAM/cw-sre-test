@@ -182,7 +182,6 @@ def rss():
 
 # Create an authenticated route that needs auth_token to change receiver_email, check_interval, timeout, healthy_threshold, unhealthy_threshold
 @app.route("/settings", methods=["POST"])
-@jwt_required()
 def settings():
 
     # global receiver_email
@@ -191,15 +190,11 @@ def settings():
     # global healthy_threshold
     # global unhealthy_threshold
 
-    auth_token = request.headers["Authorization"].split(" ")[1]
     receiver_email = request.json.get("receiver_email")
     check_interval = request.json.get("check_interval")
     timeout = request.json.get("timeout")
     healthy_threshold = request.json.get("healthy_threshold")
     unhealthy_threshold = request.json.get("unhealthy_threshold")
-
-    if not auth_token == os.getenv("AUTH_TOKEN"):
-        return Response(status=401, response="Unauthorized")
 
     if receiver_email:
         os.environ["RECEIVER_EMAIL"] = receiver_email
