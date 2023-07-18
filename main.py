@@ -167,10 +167,10 @@ def check_health():
 
 def start_health_check():
     if __name__ == "__main__":
-        while True:
-            print("Starting health check...")
-            check_health()
-            time.sleep(check_interval)
+        # while True:
+        print("Starting health check...")
+        check_health()
+        time.sleep(check_interval)
 
 
 @app.route("/rss", methods=["GET"])
