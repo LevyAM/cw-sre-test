@@ -10,9 +10,9 @@ The application can be accessed at `https://cw-sre-7471da4f6848.herokuapp.com`.
 
 The following endpoints and verbs are supported:
 
-- `/` - GET - Returns the status of the application.
-- `/` - POST - Set parameters for the monitoring process.
+- `/` - GET - Returns the values of the environment variables.
 - `/rss` - GET - Returns an RSS feed with the status of the endpoints.
+- `/settings` - POST - Set parameters for the monitoring process.
 
 ## Setup
 

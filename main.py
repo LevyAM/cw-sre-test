@@ -1,3 +1,6 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import json
 import threading
 import socket
 import time
@@ -22,6 +25,7 @@ unhealthy_threshold = int(os.getenv("UNHEALTHY_THRESHOLD"))
 http_link = os.getenv("HTTP_HOST")
 tcp_link = os.getenv("TCP_HOST")
 tcp_port = os.getenv("TCP_PORT")
+smtp_api_token = os.getenv("SMTP_API_TOKEN")
 smtp_host = os.getenv("SMTP_HOST")
 smtp_port = os.getenv("SMTP_PORT")
 smtp_username = os.getenv("SMTP_USERNAME")
@@ -83,15 +87,29 @@ def check_tcp_link(host, port, auth_token, timeout=timeout):
     return False
 
 
-def send_email_alert(subject, message, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password, receiver_email=receiver_email):
-    server = smtplib.SMTP(smtp_host, smtp_port)
-    server.starttls()
-    server.login(smtp_username, smtp_password)
-    server.sendmail(
-        smtp_username,
-        receiver_email,
-        f"Subject: {subject}\n\n{message}\n\nSent from: {server.gethostname()}",
-    )
+def send_email_alert(subject, message, sender=smtp_username, receiver=receiver_email, smtp_host=smtp_host, smtp_port=smtp_port, smtp_username=smtp_username, smtp_password=smtp_password, smtp_api_token=smtp_api_token):
+    url = "https://api.smtplw.com.br/v1/messages"
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+        "x-auth-token": smtp_api_token,
+    }
+    data = {
+        "subject": subject,
+        "body": message,
+        "to": receiver,
+        "from": sender,
+        "headers": {
+            "Content-Type": "text/plain; charset=us-ascii"
+        },
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+
+    if response.status_code == 200:
+        print("Email sent successfully!")
+    else:
+        print("Error sending email: {}".format(response.status_code))
 
 
 def check_health():
@@ -110,8 +128,8 @@ def check_health():
             http_healthy_count = 0
             http_unhealthy_count = 0
             print("HTTP Endpoint is Healthy")
-            # send_email_alert(
-            #     "Tonto HTTP Endpoint is Healthy", "The Tonto HTTP endpoint is now healthy.")
+            send_email_alert(
+                "Tonto HTTP Endpoint is Healthy", "The Tonto HTTP endpoint is now healthy.")
     else:
         http_unhealthy_count += 1
         http_healthy_count = 0
@@ -120,8 +138,8 @@ def check_health():
             http_healthy_count = 0
             http_unhealthy_count = 0
             print("HTTP Endpoint is Unhealthy")
-            # send_email_alert(
-            #     "Tonto HTTP Endpoint is Unhealthy", "The Tonto HTTP endpoint is now unhealthy.")
+            send_email_alert(
+                "Tonto HTTP Endpoint is Unhealthy", "The Tonto HTTP endpoint is now unhealthy.")
     if check_tcp_link(tcp_link, tcp_port, auth_token, timeout):
         tcp_healthy_count += 1
         tcp_unhealthy_count = 0
@@ -130,8 +148,8 @@ def check_health():
             tcp_healthy_count = 0
             tcp_unhealthy_count = 0
             print("TCP Endpoint is Healthy")
-            # send_email_alert(
-            #     "Tonto TCP Endpoint is Healthy", "The Tonto TCP endpoint is now healthy.")
+            send_email_alert(
+                "Tonto TCP Endpoint is Healthy", "The Tonto TCP endpoint is now healthy.")
     else:
         tcp_unhealthy_count += 1
         tcp_healthy_count = 0
@@ -140,8 +158,8 @@ def check_health():
             tcp_healthy_count = 0
             tcp_unhealthy_count = 0
             print("TCP Endpoint is Unhealthy")
-            # send_email_alert(
-            #     "Tonto TCP Endpoint is Unhealthy", "The Tonto TCP endpoint is now unhealthy.")
+            send_email_alert(
+                "Tonto TCP Endpoint is Unhealthy", "The Tonto TCP endpoint is now unhealthy.")
     print("Checking health...")
 
 
