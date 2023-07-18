@@ -53,7 +53,7 @@ class TestCheckTcpLink(unittest.TestCase):
             mock_socket.return_value.connect = mock.Mock(return_value=False)
             self.assertFalse(check_tcp_link(url, port, token, timeout))
 
-    @ unittest.expectedFailure
+    @unittest.expectedFailure
     def test_check_tcp_link_with_socket_error(self):
         url = "example.com"
         port = 3000
