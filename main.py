@@ -184,32 +184,32 @@ def rss():
 @app.route("/settings", methods=["POST"])
 def settings():
 
-    # global receiver_email
-    # global check_interval
-    # global timeout
-    # global healthy_threshold
-    # global unhealthy_threshold
+    global receiver_email
+    global check_interval
+    global timeout
+    global healthy_threshold
+    global unhealthy_threshold
 
-    receiver_email = request.json.get("receiver_email")
-    check_interval = request.json.get("check_interval")
-    timeout = request.json.get("timeout")
-    healthy_threshold = request.json.get("healthy_threshold")
-    unhealthy_threshold = request.json.get("unhealthy_threshold")
+    new_receiver_email = request.json.get("receiver_email")
+    new_check_interval = request.json.get("check_interval")
+    new_timeout = request.json.get("timeout")
+    new_healthy_threshold = request.json.get("healthy_threshold")
+    new_unhealthy_threshold = request.json.get("unhealthy_threshold")
 
     if receiver_email:
-        os.environ["RECEIVER_EMAIL"] = receiver_email
+        receiver_email = new_receiver_email
 
     if check_interval:
-        os.environ["CHECK_INTERVAL"] = check_interval
+        check_interval = new_check_interval
 
     if timeout:
-        os.environ["TIMEOUT"] = timeout
+        timeout = new_timeout
 
     if healthy_threshold:
-        os.environ["HEALTHY_THRESHOLD"] = healthy_threshold
+        healthy_threshold = new_healthy_threshold
 
     if unhealthy_threshold:
-        os.environ["UNHEALTHY_THRESHOLD"] = unhealthy_threshold
+        unhealthy_threshold = new_unhealthy_threshold
 
     # Return success message and code 200
 
