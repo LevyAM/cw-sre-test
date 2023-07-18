@@ -8,7 +8,6 @@ from flask import Flask, Response, render_template, request
 from flask_jwt_extended import jwt_required
 from dotenv import load_dotenv
 
-from wsgiref.types import WSGIApplication
 
 app = Flask(__name__)
 
@@ -239,11 +238,7 @@ def index():
 
 if __name__ == "__main__":
     health_check_thread = threading.Thread(target=start_health_check)
-    health_check_thread.daemon = True
     health_check_thread.start()
-
-# Create a WSGI application
-wsgi_app = WSGIApplication(app.wsgi_app)
 
 if __name__ == "__main__":
 
