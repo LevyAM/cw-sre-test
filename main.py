@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 app = Flask(__name__)
 
 load_dotenv()
-host = os.getenv("HOST", "127.0.0.1")
-port = int(os.getenv("PORT", 8000))
+host = os.getenv("HOST", "0.0.0.0")
+port = int(os.getenv("PORT"))
 receiver_email = os.getenv("RECEIVER_EMAIL")
 check_interval = int(os.getenv("CHECK_INTERVAL"))
 timeout = int(os.getenv("TIMEOUT"))
@@ -242,4 +242,4 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
 
-    app.run(host=host, port=port, debug=True)
+    app.run("0.0.0.0", port=port, debug=True)
