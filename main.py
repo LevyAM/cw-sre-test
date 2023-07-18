@@ -4,9 +4,11 @@ import time
 import smtplib
 import os
 import requests
-from flask import Flask, Response, render_template, request, jsonify
-from flask_login import login_required
+from flask import Flask, Response, render_template, request
+from flask_jwt_extended import jwt_required
 from dotenv import load_dotenv
+
+from wsgiref.types import WSGIApplication
 
 app = Flask(__name__)
 
@@ -181,7 +183,7 @@ def rss():
 
 # Create an authenticated route that needs auth_token to change receiver_email, check_interval, timeout, healthy_threshold, unhealthy_threshold
 @app.route("/settings", methods=["POST"])
-@login_required
+@jwt_required()
 def settings():
 
     # global receiver_email
@@ -220,12 +222,11 @@ def settings():
     return Response(status=200, response="Settings updated")
 
 
-# Create a route that shows the current config except for auth_token and receiver_email and renders it as html
-
-
 @app.route("/", methods=["GET"])
 def index():
 
+    global http_status
+    global tcp_status
     global http_link
     global tcp_link
     global check_interval
@@ -238,10 +239,12 @@ def index():
 
 if __name__ == "__main__":
     health_check_thread = threading.Thread(target=start_health_check)
+    health_check_thread.daemon = True
     health_check_thread.start()
 
+# Create a WSGI application
+wsgi_app = WSGIApplication(app.wsgi_app)
 
 if __name__ == "__main__":
 
-    # Start the Flask app
     app.run(host=host, port=port, debug=True)
