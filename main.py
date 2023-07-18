@@ -57,28 +57,17 @@ def check_http_endpoint(host, auth_token, timeout=timeout):
 
 def check_tcp_link(host, port, auth_token, timeout=timeout):
     try:
-        # Create a TCP socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        # Set the socket timeout
         sock.settimeout(timeout)
-
-        # Connect to the Tonto TCP service
         sock.connect((host, int(port)))
-
-        # Send the authentication
         auth_message = f"auth {auth_token}".encode()
         sock.sendall(auth_message)
-
-        # Receive the authentication reply
         auth_reply = sock.recv(1024)
 
         if b"auth ok" in auth_reply:
-            # Send the testing message
             test_message = b"Test"
             sock.sendall(test_message)
 
-            # Receive the testing reply
             test_reply = sock.recv(1024)
 
             if b"CLOUDWALK" in test_reply:
@@ -87,7 +76,6 @@ def check_tcp_link(host, port, auth_token, timeout=timeout):
     except socket.error as err:
         print("TCP: Connection error:", err)
     finally:
-        # Close the socket connection
         sock.close()
 
     return False
@@ -156,10 +144,11 @@ def check_health():
 
 
 def start_health_check():
-    while True:
-        print("Starting health check...")
-        check_health()
-        time.sleep(check_interval)
+    if __name__ == "__main__":
+        while True:
+            print("Starting health check...")
+            check_health()
+            time.sleep(check_interval)
 
 
 @app.route("/rss", methods=["GET"])
@@ -189,9 +178,9 @@ def rss():
     return feed
 
 
-# # Execute start_health_check() in a thread
-health_check_thread = threading.Thread(target=start_health_check)
-health_check_thread.start()
+if __name__ == "__main__":
+    health_check_thread = threading.Thread(target=start_health_check)
+    health_check_thread.start()
 
 
 if __name__ == "__main__":
